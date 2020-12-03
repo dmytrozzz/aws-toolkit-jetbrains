@@ -13,6 +13,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.NavigatablePsiElement
 import com.intellij.psi.search.GlobalSearchScope
 import software.amazon.awssdk.services.lambda.model.FunctionConfiguration
+import software.amazon.awssdk.services.lambda.model.PackageType
 import software.amazon.awssdk.services.lambda.model.Runtime
 import software.amazon.awssdk.services.lambda.model.TracingMode
 import software.aws.toolkits.core.utils.debug
@@ -31,7 +32,8 @@ import software.aws.toolkits.jetbrains.ui.SliderPanel
 object Lambda {
     private val LOG = getLogger<Lambda>()
 
-    fun findPsiElementsForHandler(project: Project, runtime: Runtime, handler: String): Array<NavigatablePsiElement> {
+    fun findPsiElementsForHandler(project: Project, runtime: Runtime, handler: String?): Array<NavigatablePsiElement> {
+        handler ?: return emptyArray()
         val resolver = runtime.runtimeGroup?.let { LambdaHandlerResolver.getInstanceOrNull(it) } ?: return emptyArray()
 
         // Don't search through ".aws-sam" folders
@@ -80,16 +82,17 @@ object LambdaWidgets {
 
     @JvmStatic
     fun lambdaMemory(): SliderPanel =
-        SliderPanel(MIN_MEMORY, MAX_MEMORY, DEFAULT_MEMORY_SIZE, MIN_MEMORY, MAX_MEMORY, MEMORY_INCREMENT, MEMORY_INCREMENT * 5, true)
+        SliderPanel(MIN_MEMORY, MAX_MEMORY, DEFAULT_MEMORY_SIZE, MIN_MEMORY, MAX_MEMORY, MEMORY_INCREMENT, MEMORY_INCREMENT * 15, true)
 }
 
 data class LambdaFunction(
     val name: String,
     val description: String?,
     val arn: String,
+    val packageType: PackageType,
     val lastModified: String,
-    val handler: String,
-    val runtime: Runtime,
+    val handler: String?,
+    val runtime: Runtime?,
     val envVariables: Map<String, String>?,
     val timeout: Int,
     val memorySize: Int,
@@ -100,6 +103,7 @@ data class LambdaFunction(
 fun FunctionConfiguration.toDataClass() = LambdaFunction(
     name = this.functionName(),
     description = this.description(),
+    packageType = this.packageType() ?: PackageType.ZIP,
     arn = this.functionArn(),
     lastModified = this.lastModified(),
     handler = this.handler(),

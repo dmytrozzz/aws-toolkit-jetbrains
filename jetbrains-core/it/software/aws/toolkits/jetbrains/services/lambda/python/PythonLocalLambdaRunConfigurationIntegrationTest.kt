@@ -18,6 +18,7 @@ import org.junit.runners.Parameterized
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials
 import software.amazon.awssdk.auth.credentials.AwsSessionCredentials
 import software.amazon.awssdk.services.lambda.model.Runtime
+import software.aws.toolkits.core.utils.RuleUtils
 import software.aws.toolkits.jetbrains.core.credentials.MockCredentialsManager
 import software.aws.toolkits.jetbrains.core.region.MockRegionProvider
 import software.aws.toolkits.jetbrains.services.lambda.execution.local.createHandlerBasedRunConfiguration
@@ -27,6 +28,7 @@ import software.aws.toolkits.jetbrains.utils.checkBreakPointHit
 import software.aws.toolkits.jetbrains.utils.executeRunConfiguration
 import software.aws.toolkits.jetbrains.utils.rules.PythonCodeInsightTestFixtureRule
 import software.aws.toolkits.jetbrains.utils.rules.addBreakpoint
+import software.aws.toolkits.jetbrains.utils.samImageRunDebugTest
 import software.aws.toolkits.jetbrains.utils.setSamExecutableFromEnvironment
 
 @RunWith(Parameterized::class)
@@ -48,6 +50,7 @@ class PythonLocalLambdaRunConfigurationIntegrationTest(private val runtime: Runt
 
     private val mockId = "MockCredsId"
     private val mockCreds = AwsBasicCredentials.create("Access", "ItsASecret")
+    private val input = RuleUtils.randomName()
 
     @Before
     fun setUp() {
@@ -190,7 +193,8 @@ class PythonLocalLambdaRunConfigurationIntegrationTest(private val runtime: Runt
         assertThat(jsonToMap(executeLambda.stdout))
             .containsEntry("AWS_ACCESS_KEY_ID", mockCreds.accessKeyId())
             .containsEntry("AWS_SECRET_ACCESS_KEY", mockCreds.secretAccessKey())
-            .doesNotContainKey("AWS_SESSION_TOKEN")
+            // An empty AWS_SESSION_TOKEN is inserted by Samcli/the Lambda runtime as of 1.13.1
+            .containsEntry("AWS_SESSION_TOKEN", "")
     }
 
     @Test
@@ -238,7 +242,7 @@ class PythonLocalLambdaRunConfigurationIntegrationTest(private val runtime: Runt
 
         val executeLambda = executeRunConfiguration(runConfiguration, DefaultDebugExecutor.EXECUTOR_ID)
 
-        // assertThat(executeLambda.exitCode).isEqualTo(0) TODO: When debugging, always exits with 137
+        assertThat(executeLambda.exitCode).isEqualTo(0)
         assertThat(executeLambda.stdout).contains("Hello world")
 
         assertThat(debuggerIsHit.get()).isTrue()
@@ -265,7 +269,7 @@ class PythonLocalLambdaRunConfigurationIntegrationTest(private val runtime: Runt
 
         val executeLambda = executeRunConfiguration(runConfiguration, DefaultDebugExecutor.EXECUTOR_ID)
 
-        // assertThat(executeLambda.exitCode).isEqualTo(0) TODO: When debugging, always exits with 137
+        assertThat(executeLambda.exitCode).isEqualTo(0)
         assertThat(executeLambda.stdout).contains("Hello world")
 
         assertThat(debuggerIsHit.get()).isTrue()
@@ -306,11 +310,34 @@ class PythonLocalLambdaRunConfigurationIntegrationTest(private val runtime: Runt
 
         val executeLambda = executeRunConfiguration(runConfiguration, DefaultDebugExecutor.EXECUTOR_ID)
 
-        // assertThat(executeLambda.exitCode).isEqualTo(0) TODO: When debugging, always exits with 137
+        assertThat(executeLambda.exitCode).isEqualTo(0)
         assertThat(executeLambda.stdout).contains("Hello world")
 
         assertThat(debuggerIsHit.get()).isTrue()
     }
+
+    @Test
+    fun samIsExecutedImage(): Unit = samImageRunDebugTest(
+        projectRule = projectRule,
+        relativePath = "samProjects/image/$runtime",
+        sourceFileName = "app.py",
+        runtime = runtime,
+        mockCredentialsId = mockId,
+        input = input,
+        expectedOutput = input.toUpperCase()
+    )
+
+    @Test
+    fun samIsExecutedWithDebuggerImage(): Unit = samImageRunDebugTest(
+        projectRule = projectRule,
+        relativePath = "samProjects/image/$runtime",
+        sourceFileName = "app.py",
+        runtime = runtime,
+        mockCredentialsId = mockId,
+        input = input,
+        expectedOutput = input.toUpperCase(),
+        addBreakpoint = { projectRule.addBreakpoint() }
+    )
 
     @Test
     fun samIsExecutedWithTemplateWithLocalCodeUri() {
@@ -345,7 +372,7 @@ class PythonLocalLambdaRunConfigurationIntegrationTest(private val runtime: Runt
 
         val executeLambda = executeRunConfiguration(runConfiguration, DefaultDebugExecutor.EXECUTOR_ID)
 
-        // assertThat(executeLambda.exitCode).isEqualTo(0) TODO: When debugging, always exits with 137
+        assertThat(executeLambda.exitCode).isEqualTo(0)
         assertThat(executeLambda.stdout).contains("Hello world")
 
         assertThat(debuggerIsHit.get()).isTrue()

@@ -48,7 +48,7 @@ configurations {
 }
 
 val generateTelemetry = tasks.register<GenerateTelemetry>("generateTelemetry") {
-    inputFiles = listOf()
+    inputFiles = listOf(file("${project.projectDir}/resources/telemetryOverride.json"))
     outputDirectory = file("${project.buildDir}/generated-src")
 }
 compileKotlin.dependsOn(generateTelemetry)
@@ -83,6 +83,7 @@ dependencies {
     api("software.amazon.awssdk:iam:$awsSdkVersion")
     api("software.amazon.awssdk:ecr:$awsSdkVersion")
     api("software.amazon.awssdk:ecs:$awsSdkVersion")
+    api("software.amazon.awssdk:ecr:$awsSdkVersion")
     api("software.amazon.awssdk:cloudformation:$awsSdkVersion")
     api("software.amazon.awssdk:schemas:$awsSdkVersion")
     api("software.amazon.awssdk:cloudwatchlogs:$awsSdkVersion")
